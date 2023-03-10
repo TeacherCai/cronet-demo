@@ -1,12 +1,22 @@
 package com.transbyte.demo.ping.cronet;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.Log;
 
+import com.alibaba.pdns.DNSResolver;
+
 import org.chromium.net.CronetEngine;
+import org.chromium.net.ExperimentalCronetEngine;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,7 +76,17 @@ public class CronetManager {
         //
         // We recommend that QUIC hints are provided explicitly when working with servers known
         // to support QUIC.
-        return new CronetEngine.Builder(context)
+        JSONObject experimentalOptions;
+        try {
+            experimentalOptions = new JSONObject().put("HostResolverRules", getHostResolverRules("storage.googleapis.com"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+            experimentalOptions = new JSONObject();
+        }
+
+        return new ExperimentalCronetEngine.Builder(context)
+                .setExperimentalOptions(experimentalOptions.toString())
+
                 // The storage path must be set first when using a disk cache.
                 .setStoragePath(context.getFilesDir().getAbsolutePath())
 
@@ -100,6 +120,42 @@ public class CronetManager {
                 // .addQuicHint("storage.googleapis.com", 443, 443)
                 .addQuicHint("sit-i.scooper.news", 443, 443)
                 .build();
+    }
+
+    private JSONObject getHostResolverRules(String host) {
+        String ip = DNSResolver.getInstance().getIPV4ByHost(host);
+        if (ip != null) {
+            Log.d(TAG, "lookup aliyun host:" + host + " ip: " + ip);
+        }
+        List<InetAddress> dnsList = null;
+        try {
+            dnsList = Arrays.asList(InetAddress.getAllByName(ip));
+        } catch (UnknownHostException e) {
+//            e.printStackTrace();
+        }
+
+        if (TextUtils.isEmpty(host) || dnsList == null) {
+            return null;
+        }
+
+        StringBuilder hostRuleStr = new StringBuilder();
+        //目前测试看，即使此处设置多个dnsIp， cronet默认也只是用第一个，且第一个失败后不会自动重试第二个
+        for (int i = 0, size = dnsList.size(); i < size; i++) {
+            InetAddress inetAddress = dnsList.get(i);
+            if (inetAddress != null) {
+                String hostAddress = inetAddress.getHostAddress();
+                if (!TextUtils.isEmpty(hostAddress)) {
+                    hostRuleStr.append("MAP ").append(host).append(" ").append(hostAddress).append(",");
+                }
+            }
+        }
+        JSONObject host_rule = null;
+        try {
+            host_rule = new JSONObject().put("host_resolver_rules", hostRuleStr);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return host_rule;
     }
 
     /**

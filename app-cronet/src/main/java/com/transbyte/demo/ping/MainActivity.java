@@ -10,10 +10,12 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.alibaba.pdns.DNSResolver;
+import com.google.net.cronet.okhttptransport.CronetInterceptor;
 import com.transbyte.demo.ping.cronet.CronetManager;
 import com.transbyte.demo.ping.cronet.ReadToMemoryCronetCallback;
 
 import org.chromium.net.CronetException;
+import org.chromium.net.RequestFinishedInfo;
 import org.chromium.net.UrlRequest;
 import org.chromium.net.UrlResponseInfo;
 
@@ -25,6 +27,7 @@ import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -69,13 +72,16 @@ public class MainActivity extends AppCompatActivity {
                         return Dns.SYSTEM.lookup(hostname);
                     }
                 })
+                .addInterceptor(CronetInterceptor.newBuilder(CronetManager.getInstance().getCronetEngine()).build())
                 .build();
 
         pingBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                requestByCronet(testUrl[0]);
-//                requestByOkHttp(testUrl[0]);
+//                requestByCronet(testUrl[0]);
+//                for (int i = 0; i < 10; i++) {
+                requestByOkHttp(testUrl[0]);
+//                }
             }
         });
     }
@@ -139,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
         StringBuffer logBuffer = new StringBuffer(new Date(System.currentTimeMillis()).toString() + "\n");
 
         try {
+            CountDownLatch countDownLatch = new CountDownLatch(1);
             logBuffer
                     .append("UrlRequest:\n")
                     .append(url).append("\n");
@@ -161,6 +168,7 @@ public class MainActivity extends AppCompatActivity {
                             pingText.setText(logBuffer.toString());
                         }
                     });
+                    countDownLatch.countDown();
                 }
 
                 @Override
@@ -181,10 +189,14 @@ public class MainActivity extends AppCompatActivity {
                             pingText.setText(logBuffer.toString());
                         }
                     });
+                    countDownLatch.countDown();
                 }
             });
+            countDownLatch.await();
 
         } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }

@@ -41,7 +41,7 @@ public class AliYunDnsFactory {
         DNSResolver.setMaxNegativeCache(MAX_NEGATIVE_CACHE);
         // 设置访问服务端协议 http还是https模式
 //        DNSResolver.setSchemaType(BuildConfig.APP_MODE == 0 ? DNSResolver.HTTPS : DNSResolver.HTTP);
-        DNSResolver.setSchemaType(DNSResolver.HTTP);
+        DNSResolver.setSchemaType(DNSResolver.HTTPS);//sdk 内部也使用了Cronet，请求HTTP会出错
         // 设置缓存域名的最大个数，默认为100
         DNSResolver.getInstance().setMaxCacheSize(CACHE_MAX_NUMBER);
         DNSResolver.setEnableLogger(true);
